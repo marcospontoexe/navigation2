@@ -2,6 +2,8 @@
 
 This is a fork of [ros-navigation/navigation2](https://github.com/ros-navigation/navigation2), extending the **Route Editor** (`nav2_rviz_plugins` / `nav2_route`) with a few usability and visualization improvements that are not present upstream.
 
+![Route Tool panel showing directional arrows, color-coded bidirectional edges, ID labels, and the new Bidirectional Edge / Speed fields](nav2_rviz_plugins/doc/route_tool_screenshot.png)
+
 ## New features
 
 ### 1. One-click bidirectional edge creation
