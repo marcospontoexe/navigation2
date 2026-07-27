@@ -97,11 +97,14 @@ inline visualization_msgs::msg::MarkerArray toMsg(
   node_id_marker.action = 0;
   node_id_marker.ns = "route_graph_node_ids";
   node_id_marker.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
-  node_id_marker.scale.x = 0.1;
-  node_id_marker.scale.y = 0.1;
-  node_id_marker.scale.z = 0.1;
+  node_id_marker.scale.x = 0.1;  // Aumentado de 0.1 para melhor visibilidade
+  node_id_marker.scale.y = 0.15;
+  node_id_marker.scale.z = 0.15;
   node_id_marker.color.a = 1.0;
-  node_id_marker.color.r = 1.0;
+  node_id_marker.color.r = 1.0;  // Vermelho (já está assim)
+  node_id_marker.color.g = 1.0;  // Adicione para amarelo
+  node_id_marker.color.b = 0.0;  // Amarelo fica mais visível
+  node_id_marker.pose.position.z = 0.3;  // Eleva os IDs acima dos nodes
 
   visualization_msgs::msg::Marker edge_id_marker;
   edge_id_marker.header.frame_id = frame;
@@ -109,21 +112,75 @@ inline visualization_msgs::msg::MarkerArray toMsg(
   edge_id_marker.action = 0;
   edge_id_marker.ns = "route_graph_edge_ids";
   edge_id_marker.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
-  edge_id_marker.scale.x = 0.1;
-  edge_id_marker.scale.y = 0.1;
-  edge_id_marker.scale.z = 0.1;
+  edge_id_marker.scale.x = 0.12;  // Aumentado de 0.1
+  edge_id_marker.scale.y = 0.12;
+  edge_id_marker.scale.z = 0.12;
   edge_id_marker.color.a = 1.0;
-  edge_id_marker.color.g = 1.0;
+  edge_id_marker.color.r = 0.0;  // Alterado
+  edge_id_marker.color.g = 0.2;  // Verde (já está assim)
+  edge_id_marker.color.b = 1.0;  // Adicione para ciano (melhor contraste)
+  edge_id_marker.pose.position.z = 0.2;  // Eleva os IDs acima das edges
+
+  visualization_msgs::msg::Marker node_id_bg_marker;
+  node_id_bg_marker.header.frame_id = frame;
+  node_id_bg_marker.header.stamp = now;
+  node_id_bg_marker.action = 0;
+  node_id_bg_marker.ns = "route_graph_node_ids_bg";
+  node_id_bg_marker.type = visualization_msgs::msg::Marker::CUBE;
+  node_id_bg_marker.scale.x = 0.18;  // Um pouco maior que o texto
+  node_id_bg_marker.scale.y = 0.08;
+  node_id_bg_marker.scale.z = 0.001;  // Bem fino
+  node_id_bg_marker.color.a = 0.8;  // Semi-transparente
+  node_id_bg_marker.color.r = 0.0;  // Preto
+  node_id_bg_marker.color.g = 0.0;
+  node_id_bg_marker.color.b = 0.0;
+  node_id_bg_marker.pose.position.z = 0.3;  // Logo atrás do texto
+
+  visualization_msgs::msg::Marker edge_id_bg_marker;
+  edge_id_bg_marker.header.frame_id = frame;
+  edge_id_bg_marker.header.stamp = now;
+  edge_id_bg_marker.action = 0;
+  edge_id_bg_marker.ns = "route_graph_edge_ids_bg";
+  edge_id_bg_marker.type = visualization_msgs::msg::Marker::CUBE;
+  edge_id_bg_marker.scale.x = 0.15;
+  edge_id_bg_marker.scale.y = 0.08;
+  edge_id_bg_marker.scale.z = 0.001;
+  edge_id_bg_marker.color.a = 0.8;
+  edge_id_bg_marker.color.r = 0.0;
+  edge_id_bg_marker.color.g = 0.0;
+  edge_id_bg_marker.color.b = 0.0;
+  edge_id_bg_marker.pose.position.z = 0.19;
+
+  visualization_msgs::msg::Marker edge_arrow_marker;
+  edge_arrow_marker.header.frame_id = frame;
+  edge_arrow_marker.header.stamp = now;
+  edge_arrow_marker.action = 0;
+  edge_arrow_marker.ns = "route_graph_edge_arrows";
+  edge_arrow_marker.type = visualization_msgs::msg::Marker::ARROW;
+  edge_arrow_marker.scale.x = 0.15;  // Comprimento da seta
+  edge_arrow_marker.scale.y = 0.03;  // Largura da seta
+  edge_arrow_marker.scale.z = 0.03;  // Altura da seta
+  edge_arrow_marker.color.a = 0.8;
+  edge_arrow_marker.color.r = 1.0;  // Cor diferente da aresta (laranja)
+  edge_arrow_marker.color.g = 0.5;
+  edge_arrow_marker.color.b = 0.0;
+  edge_arrow_marker.pose.position.z = 0.05;  // Um pouco acima do chão
 
   for (const auto & node : graph) {
     node_pos.x = node.coords.x;
     node_pos.y = node.coords.y;
     nodes_marker.points.push_back(node_pos);
 
+    // Add background for Node ID
+    node_id_bg_marker.id++;
+    node_id_bg_marker.pose.position.x = node.coords.x + 0.15;
+    node_id_bg_marker.pose.position.y = node.coords.y + 0.15;
+    msg.markers.push_back(node_id_bg_marker);
+
     // Add text for Node ID
     node_id_marker.id++;
-    node_id_marker.pose.position.x = node.coords.x + 0.07;
-    node_id_marker.pose.position.y = node.coords.y;
+    node_id_marker.pose.position.x = node.coords.x + 0.15;
+    node_id_marker.pose.position.y = node.coords.y + 0.15;
     node_id_marker.text = std::to_string(node.nodeid);
     msg.markers.push_back(node_id_marker);
 
@@ -132,26 +189,114 @@ inline visualization_msgs::msg::MarkerArray toMsg(
       edge_start.y = node.coords.y;
       edge_end.x = neighbor.end->coords.x;
       edge_end.y = neighbor.end->coords.y;
+
+      // Verificar se existe aresta bidirecional
+      bool is_bidirectional = false;
+      for (const auto & reverse_neighbor : neighbor.end->neighbors) {
+        if (reverse_neighbor.end->nodeid == node.nodeid) {
+          is_bidirectional = true;
+          break;
+        }
+      }
+
       edges_marker.points.push_back(edge_start);
       edges_marker.points.push_back(edge_end);
 
       // Deal with overlapping bi-directional text markers by offsetting locations
       float y_offset = 0.0;
       if (node.nodeid > neighbor.end->nodeid) {
-        y_offset = 0.05;
+        y_offset = 0.08;  // Aumentado de 0.05
       } else {
-        y_offset = -0.05;
+        y_offset = -0.08;
       }
-      const float x_offset = 0.07;
+      const float x_offset = 0.12;  // Aumentado de 0.07
+
+      // Cores diferentes para IDs de arestas bidirecionais
+      visualization_msgs::msg::Marker current_edge_id_bg = edge_id_bg_marker;
+      visualization_msgs::msg::Marker current_edge_id = edge_id_marker;
+
+      if (is_bidirectional && node.nodeid > neighbor.end->nodeid) {
+        // Aresta de "volta" - fundo e texto azul claro
+        current_edge_id_bg.color.r = 0.0;
+        current_edge_id_bg.color.g = 0.3;
+        current_edge_id_bg.color.b = 0.6;
+        current_edge_id_bg.color.a = 0.9;
+
+        current_edge_id.color.r = 0.3;
+        current_edge_id.color.g = 0.7;
+        current_edge_id.color.b = 1.0;
+      } else if (is_bidirectional) {
+        // Aresta de "ida" bidirecional - fundo e texto verde/amarelo
+        current_edge_id_bg.color.r = 0.2;
+        current_edge_id_bg.color.g = 0.5;
+        current_edge_id_bg.color.b = 0.0;
+        current_edge_id_bg.color.a = 0.9;
+
+        current_edge_id.color.r = 0.5;
+        current_edge_id.color.g = 1.0;
+        current_edge_id.color.b = 0.3;
+      }
+      // else: mantém a cor padrão (ciano) para arestas unidirecionais
+
+      // Add background for Edge ID
+      current_edge_id_bg.id = edge_id_bg_marker.id + 1;
+      edge_id_bg_marker.id++;
+      current_edge_id_bg.pose.position.x =
+        node.coords.x + ((neighbor.end->coords.x - node.coords.x) / 2.0) + x_offset;
+      current_edge_id_bg.pose.position.y =
+        node.coords.y + ((neighbor.end->coords.y - node.coords.y) / 2.0) + y_offset;
+      msg.markers.push_back(current_edge_id_bg);
 
       // Add text for Edge ID
+      current_edge_id.id = edge_id_marker.id + 1;
       edge_id_marker.id++;
-      edge_id_marker.pose.position.x =
+      current_edge_id.pose.position.x =
         node.coords.x + ((neighbor.end->coords.x - node.coords.x) / 2.0) + x_offset;
-      edge_id_marker.pose.position.y =
+      current_edge_id.pose.position.y =
         node.coords.y + ((neighbor.end->coords.y - node.coords.y) / 2.0) + y_offset;
-      edge_id_marker.text = std::to_string(neighbor.edgeid);
-      msg.markers.push_back(edge_id_marker);
+      current_edge_id.text = std::to_string(neighbor.edgeid);
+      msg.markers.push_back(current_edge_id);
+
+      // Add arrow for Edge ID
+      edge_arrow_marker.id++;
+
+      // Calcular posição central da aresta
+      float arrow_x = node.coords.x + ((neighbor.end->coords.x - node.coords.x) / 2.0);
+      float arrow_y = node.coords.y + ((neighbor.end->coords.y - node.coords.y) / 2.0);
+
+      edge_arrow_marker.pose.position.x = arrow_x;
+      edge_arrow_marker.pose.position.y = arrow_y;
+
+      // Calcular a orientação da seta baseada na direção da aresta
+      float dx = neighbor.end->coords.x - node.coords.x;
+      float dy = neighbor.end->coords.y - node.coords.y;
+      float yaw = std::atan2(dy, dx);
+
+      // Converter yaw para quaternion
+      edge_arrow_marker.pose.orientation.x = 0.0;
+      edge_arrow_marker.pose.orientation.y = 0.0;
+      edge_arrow_marker.pose.orientation.z = std::sin(yaw / 2.0);
+      edge_arrow_marker.pose.orientation.w = std::cos(yaw / 2.0);
+
+      // Ajustar cor da seta para corresponder ao tipo de aresta
+      if (is_bidirectional && node.nodeid > neighbor.end->nodeid) {
+        // Seta azul para aresta de volta
+        edge_arrow_marker.color.r = 0.3;
+        edge_arrow_marker.color.g = 0.7;
+        edge_arrow_marker.color.b = 1.0;
+      } else if (is_bidirectional) {
+        // Seta verde/amarela para aresta de ida bidirecional
+        edge_arrow_marker.color.r = 0.5;
+        edge_arrow_marker.color.g = 1.0;
+        edge_arrow_marker.color.b = 0.3;
+      } else {
+        // Seta laranja para aresta unidirecional
+        edge_arrow_marker.color.r = 1.0;
+        edge_arrow_marker.color.g = 0.5;
+        edge_arrow_marker.color.b = 0.0;
+      }
+
+      msg.markers.push_back(edge_arrow_marker);
     }
   }
 
