@@ -61,4 +61,5 @@ Tested on **ROS 2 Jazzy** (Ubuntu 24.04).
 
 ## Credit
 
-Route Tool originally authored by John Chrosniak (2024) as part of `nav2_route`. All changes above are additions on top of that original implementation.
+- Route Tool originally authored by John Chrosniak (2024) as part of `nav2_route`.
+- Bidirectional edges, directional arrows, speed limit input, and label readability improvements above co-authored by [@marcospontoexe](https://github.com/marcospontoexe) and [Erico Meger](https://github.com/EricoMeger).
