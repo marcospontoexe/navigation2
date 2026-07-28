@@ -15,6 +15,11 @@
 #include <limits>
 #include <string>
 #include <vector>
+#include <sstream>
+#include <iomanip>
+#include <any>
+#include <typeinfo>
+#include <algorithm>
 #include "std_msgs/msg/color_rgba.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
 #include "visualization_msgs/msg/marker.hpp"
@@ -166,6 +171,35 @@ inline visualization_msgs::msg::MarkerArray toMsg(
   edge_arrow_marker.color.b = 0.0;
   edge_arrow_marker.pose.position.z = 0.05;  // Um pouco acima do chão
 
+  // Fundo (cubo colorido com a cor da aresta) do label de speed_limit
+  visualization_msgs::msg::Marker edge_speed_bg_marker;
+  edge_speed_bg_marker.header.frame_id = frame;
+  edge_speed_bg_marker.header.stamp = now;
+  edge_speed_bg_marker.action = 0;
+  edge_speed_bg_marker.ns = "route_graph_edge_speed_limits_bg";
+  edge_speed_bg_marker.type = visualization_msgs::msg::Marker::CUBE;
+  edge_speed_bg_marker.scale.x = 0.30;  // Largo o suficiente para "100.0%"
+  edge_speed_bg_marker.scale.y = 0.10;
+  edge_speed_bg_marker.scale.z = 0.001;  // Bem fino
+  edge_speed_bg_marker.color.a = 0.85;  // r/g/b definidos por aresta (edge_color)
+  edge_speed_bg_marker.pose.position.z = 0.24;
+
+  // Texto do valor de speed_limit, perto do no de inicio da aresta
+  visualization_msgs::msg::Marker edge_speed_marker;
+  edge_speed_marker.header.frame_id = frame;
+  edge_speed_marker.header.stamp = now;
+  edge_speed_marker.action = 0;
+  edge_speed_marker.ns = "route_graph_edge_speed_limits";
+  edge_speed_marker.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
+  edge_speed_marker.scale.x = 0.12;
+  edge_speed_marker.scale.y = 0.12;
+  edge_speed_marker.scale.z = 0.12;
+  edge_speed_marker.color.r = 0.0;  // Preto fixo: contrasta com as 3 cores de
+  edge_speed_marker.color.g = 0.0;  // fundo possiveis (laranja/verde-amarelo/azul),
+  edge_speed_marker.color.b = 0.0;  // todas relativamente claras
+  edge_speed_marker.color.a = 1.0;
+  edge_speed_marker.pose.position.z = 0.25;
+
   for (const auto & node : graph) {
     node_pos.x = node.coords.x;
     node_pos.y = node.coords.y;
@@ -197,6 +231,17 @@ inline visualization_msgs::msg::MarkerArray toMsg(
           is_bidirectional = true;
           break;
         }
+      }
+
+      // Cor da aresta (reaproveitada pela seta e pelo fundo do label de speed_limit)
+      std_msgs::msg::ColorRGBA edge_color;
+      edge_color.a = 1.0;
+      if (is_bidirectional && node.nodeid > neighbor.end->nodeid) {
+        edge_color.r = 0.3; edge_color.g = 0.7; edge_color.b = 1.0;  // volta: azul
+      } else if (is_bidirectional) {
+        edge_color.r = 0.5; edge_color.g = 1.0; edge_color.b = 0.3;  // ida bidirecional: verde/amarelo
+      } else {
+        edge_color.r = 1.0; edge_color.g = 0.5; edge_color.b = 0.0;  // unidirecional: laranja
       }
 
       edges_marker.points.push_back(edge_start);
@@ -257,6 +302,69 @@ inline visualization_msgs::msg::MarkerArray toMsg(
       current_edge_id.text = std::to_string(neighbor.edgeid);
       msg.markers.push_back(current_edge_id);
 
+      // Add background + text for the edge's speed_limit, perto do no de inicio,
+      // somente se a aresta realmente tiver essa metadata
+      auto speed_it = neighbor.metadata.data.find("speed_limit");
+      if (speed_it != neighbor.metadata.data.end()) {
+        if (speed_it->second.type() == typeid(float)) {
+          const float speed_limit_value = std::any_cast<float>(speed_it->second);
+
+          const float edge_dx = neighbor.end->coords.x - node.coords.x;
+          const float edge_dy = neighbor.end->coords.y - node.coords.y;
+          const float edge_len = std::hypotf(edge_dx, edge_dy);
+
+          float ux = 0.0, uy = 0.0;
+          if (edge_len > 1e-3) {
+            ux = edge_dx / edge_len;
+            uy = edge_dy / edge_len;
+          }
+          const float perp_x = -uy;  // perpendicular a direcao da aresta
+          const float perp_y = ux;
+
+          // Anda uma fracao pequena a partir do no de inicio (nao o meio, como o ID),
+          // com piso/teto para nao colar no no em arestas curtas nem escorregar ate
+          // o meio em arestas longas
+          float speed_along = std::max(0.25f * edge_len, 0.25f);
+          speed_along = std::min(speed_along, 0.4f * edge_len);
+
+          // Mesmo sinal usado no y_offset do ID, para afastar o label da linha da aresta
+          const float speed_side = (node.nodeid > neighbor.end->nodeid) ? 1.0f : -1.0f;
+
+          const float speed_x = node.coords.x + ux * speed_along +
+            perp_x * 0.12f * speed_side;
+          const float speed_y = node.coords.y + uy * speed_along +
+            perp_y * 0.12f * speed_side;
+
+          visualization_msgs::msg::Marker current_edge_speed_bg = edge_speed_bg_marker;
+          current_edge_speed_bg.id = ++edge_speed_bg_marker.id;
+          current_edge_speed_bg.pose.position.x = speed_x;
+          current_edge_speed_bg.pose.position.y = speed_y;
+          current_edge_speed_bg.color.r = edge_color.r;
+          current_edge_speed_bg.color.g = edge_color.g;
+          current_edge_speed_bg.color.b = edge_color.b;
+          msg.markers.push_back(current_edge_speed_bg);
+
+          // speed_limit e tratado como percentual da velocidade maxima (ver
+          // adjust_speed_limit.cpp), daih o sufixo "%"
+          std::ostringstream speed_text_stream;
+          speed_text_stream << std::fixed << std::setprecision(1) << speed_limit_value << "%";
+
+          visualization_msgs::msg::Marker current_edge_speed_text = edge_speed_marker;
+          current_edge_speed_text.id = ++edge_speed_marker.id;
+          current_edge_speed_text.pose.position.x = speed_x;
+          current_edge_speed_text.pose.position.y = speed_y;
+          current_edge_speed_text.text = speed_text_stream.str();
+          msg.markers.push_back(current_edge_speed_text);
+        } else {
+          RCLCPP_WARN_ONCE(
+            rclcpp::get_logger("nav2_route_utils"),
+            "Edge metadata key 'speed_limit' is not stored as a float (found type: %s); "
+            "skipping the speed limit label for one or more edges. Graph files should "
+            "write speed_limit as a decimal (e.g. 85.0, not 85) so it is parsed as a float.",
+            speed_it->second.type().name());
+        }
+      }
+
       // Add arrow for Edge ID
       edge_arrow_marker.id++;
 
@@ -279,22 +387,8 @@ inline visualization_msgs::msg::MarkerArray toMsg(
       edge_arrow_marker.pose.orientation.w = std::cos(yaw / 2.0);
 
       // Ajustar cor da seta para corresponder ao tipo de aresta
-      if (is_bidirectional && node.nodeid > neighbor.end->nodeid) {
-        // Seta azul para aresta de volta
-        edge_arrow_marker.color.r = 0.3;
-        edge_arrow_marker.color.g = 0.7;
-        edge_arrow_marker.color.b = 1.0;
-      } else if (is_bidirectional) {
-        // Seta verde/amarela para aresta de ida bidirecional
-        edge_arrow_marker.color.r = 0.5;
-        edge_arrow_marker.color.g = 1.0;
-        edge_arrow_marker.color.b = 0.3;
-      } else {
-        // Seta laranja para aresta unidirecional
-        edge_arrow_marker.color.r = 1.0;
-        edge_arrow_marker.color.g = 0.5;
-        edge_arrow_marker.color.b = 0.0;
-      }
+      edge_arrow_marker.color = edge_color;
+      edge_arrow_marker.color.a = 0.8;  // a seta mantem sua propria transparencia
 
       msg.markers.push_back(edge_arrow_marker);
     }

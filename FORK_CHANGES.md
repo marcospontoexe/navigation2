@@ -33,6 +33,13 @@ Arrows are color-coded to match the edge-ID label next to them:
 
 The "Add" tab, "Edge" mode now has a **"Speed:"** field, pre-filled with `100.0`, right below "End Node ID:". Its value is written into the new edge's metadata under the key `speed_limit` (as a `float`), so it is persisted when the graph is saved to `.geojson` and can be consumed directly by the existing `speed_limit`-aware edge scorers/operations (e.g. `DistanceScorer`, `AdjustSpeedLimit`) without any manual editing of the graph file.
 
+### 5. Speed limit label on the graph visualization
+`nav2_route/include/nav2_route/utils.hpp`
+
+Edges that have a `speed_limit` value in their metadata now render it directly in the graph markers, near the **start node** of the edge (as opposed to the ID label, which sits at the midpoint) — shown as a percentage of maximum speed (e.g. `"100.0%"`), matching how `speed_limit` is already interpreted elsewhere (`AdjustSpeedLimit` logs it as "% of maximum"). The label's background is colored with the edge's own color (orange/green-yellow/blue, the same scheme as the directional arrow), with black text for contrast.
+
+Edges without a `speed_limit` key are left untouched — no label is drawn, so older graphs that don't have this metadata aren't cluttered with a fabricated value. If the key is present but wasn't stored as a `float` (e.g. an integer written without a decimal point in a hand-edited `.geojson`), the label is skipped for that edge and a one-time warning is logged, rather than crashing the panel.
+
 ## Dependencies & Installation
 
 No new dependencies were introduced by this fork — everything added builds on packages `navigation2` already depends on (`libqt5-widgets`/`qtbase5-dev` for the RViz panel, `visualization_msgs` for the arrow markers, `nlohmann-json-dev` for `.geojson` (de)serialization).
