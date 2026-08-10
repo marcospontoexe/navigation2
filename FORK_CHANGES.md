@@ -2,6 +2,13 @@
 
 This is a fork of [ros-navigation/navigation2](https://github.com/ros-navigation/navigation2), extending the **Route Editor** (`nav2_rviz_plugins` / `nav2_route`) with a few usability and visualization improvements that are not present upstream.
 
+**Scope of this document**: only the Route Editor changes below. This fork
+also carries an unrelated `opennav_following` Jazzy backport and some
+project-specific assets (maps, worlds, route graphs) — see
+[`DIFF_FROM_UPSTREAM_JAZZY.md`](./DIFF_FROM_UPSTREAM_JAZZY.md) in this same
+directory for the complete picture. Notably, **`opennav_docking` is not
+touched by this fork at all** — it's the unmodified official Jazzy release.
+
 ![Route Tool panel showing directional arrows, color-coded bidirectional edges, ID labels, and the new Bidirectional Edge / Speed fields](nav2_rviz_plugins/doc/route_tool_screenshot.png)
 
 ## New features
@@ -39,6 +46,13 @@ The "Add" tab, "Edge" mode now has a **"Speed:"** field, pre-filled with `100.0`
 Edges that have a `speed_limit` value in their metadata now render it directly in the graph markers, near the **start node** of the edge (as opposed to the ID label, which sits at the midpoint) — shown as a percentage of maximum speed (e.g. `"100.0%"`), matching how `speed_limit` is already interpreted elsewhere (`AdjustSpeedLimit` logs it as "% of maximum"). The label's background is colored with the edge's own color (orange/green-yellow/blue, the same scheme as the directional arrow), with black text for contrast.
 
 Edges without a `speed_limit` key are left untouched — no label is drawn, so older graphs that don't have this metadata aren't cluttered with a fabricated value. If the key is present but wasn't stored as a `float` (e.g. an integer written without a decimal point in a hand-edited `.geojson`), the label is skipped for that edge and a one-time warning is logged, rather than crashing the panel.
+
+### 6. "Get Pose" button for one-click node placement
+`nav2_rviz_plugins/resource/route_tool.ui`, `nav2_rviz_plugins/include/nav2_rviz_plugins/route_tool.hpp`, `nav2_rviz_plugins/src/route_tool.cpp`
+
+The "Add" tab, "Node" mode now has a **"Get Pose"** button. Clicking it looks up the robot's current position via TF (`map → base_frame`, `base_frame` defaulting to `base_link` and configurable as a ROS parameter) and fills the "X:"/"Y:" fields with it, so a node can be placed exactly where the robot is currently standing without typing coordinates by hand. The lookup is non-blocking (`tf2::TimePointZero`, no timeout wait) so it can never hang the panel; if the transform isn't available yet, it logs a warning and leaves the fields untouched.
+
+This also fixes a pre-existing bug: the panel's `tf2_ros::Buffer` never had a `tf2_ros::TransformListener` attached, so it never actually received any transforms — the button (and the panel's TF-dependent code in general, like cross-frame graph loading) would not have worked without this fix.
 
 ## Dependencies & Installation
 
