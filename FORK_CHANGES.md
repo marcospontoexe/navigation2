@@ -2,13 +2,6 @@
 
 This is a fork of [ros-navigation/navigation2](https://github.com/ros-navigation/navigation2), extending the **Route Editor** (`nav2_rviz_plugins` / `nav2_route`) with a few usability and visualization improvements that are not present upstream.
 
-**Scope of this document**: only the Route Editor changes below. This fork
-also carries an unrelated `opennav_following` Jazzy backport and some
-project-specific assets (maps, worlds, route graphs) — see
-[`DIFF_FROM_UPSTREAM_JAZZY.md`](./DIFF_FROM_UPSTREAM_JAZZY.md) in this same
-directory for the complete picture. Notably, **`opennav_docking` is not
-touched by this fork at all** — it's the unmodified official Jazzy release.
-
 ![Route Tool panel showing directional arrows, color-coded bidirectional edges, ID labels, and the new Bidirectional Edge / Speed fields](nav2_rviz_plugins/doc/route_tool_screenshot.png)
 
 ## New features
