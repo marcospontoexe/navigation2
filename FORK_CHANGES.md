@@ -47,6 +47,34 @@ The "Add" tab, "Node" mode now has a **"Get Pose"** button. Clicking it looks up
 
 This also fixes a pre-existing bug: the panel's `tf2_ros::Buffer` never had a `tf2_ros::TransformListener` attached, so it never actually received any transforms — the button (and the panel's TF-dependent code in general, like cross-frame graph loading) would not have worked without this fix.
 
+### 7. Arrow transparency driven by the edge `penalty`
+`nav2_route/include/nav2_route/utils.hpp`
+
+Each direction arrow's transparency now reflects the `penalty` metadata of **its own edge** — the value Nav2's `PenaltyScorer` adds to an edge's cost to discourage the route planner from using it. The lower the penalty, the more transparent the arrow; the edge with the highest penalty in the graph gets a fully opaque arrow:
+
+```
+alpha = 0.5 + 0.5 × (edge penalty / highest penalty in the graph)
+```
+
+![Bidirectional pair where only one direction is penalized: the penalized edge's arrow is opaque, the reverse edge's arrow is semi-transparent](nav2_rviz_plugins/doc/penalty.png)
+
+*Edge 162 (node 16 → 158) has `"penalty": 10.0` — the only penalty in this graph — so its green arrow is fully opaque. Its reverse, edge 161 (158 → 16), has no penalty, so its blue arrow (like every other arrow in the graph) stays at alpha 0.5.*
+
+- **Per direction:** each arrow uses the penalty of its own edge, so penalizing only `A → B` changes only that arrow.
+- **Readable by default:** edges without a `penalty` key count as `0.0` (the same default as `PenaltyScorer`) and keep alpha `0.5`, so the direction of the unpenalized majority of the graph stays easy to read.
+- **Relative scale:** the penalty is normalized by the highest penalty in the graph itself, so `toMsg()` keeps its signature (it is shared by `route_server` and the Route Tool panel).
+- **Only the arrows change** (hue, size and edge lines are untouched). The two arrows of a bidirectional pair start at the same midpoint and point in opposite directions, so they never overlap, and each arrow is its own marker with its own material in RViz. The edge lines were deliberately left alone: both directions of a bidirectional edge are drawn on the same segment, so per-direction transparency there would stack.
+- **Robust to typos:** a `penalty` written without a decimal point (`10` instead of `10.0`) is parsed as an integer. The arrow treats it as `0.0` and logs a one-time warning instead of failing (the `PenaltyScorer` itself fails on such an edge, so the warning helps find it).
+
+The visualization only *reads* the metadata. For the penalty to actually change the planned route, `PenaltyScorer` must be enabled in the `route_server` parameters:
+
+```yaml
+edge_cost_functions: ["DistanceScorer", "CostmapScorer", "PenaltyScorer"]
+PenaltyScorer:
+  plugin: "nav2_route::PenaltyScorer"
+  weight: 1.0
+```
+
 ## Dependencies & Installation
 
 No new dependencies were introduced by this fork — everything added builds on packages `navigation2` already depends on (`libqt5-widgets`/`qtbase5-dev` for the RViz panel, `visualization_msgs` for the arrow markers, `nlohmann-json-dev` for `.geojson` (de)serialization).

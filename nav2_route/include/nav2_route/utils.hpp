@@ -165,7 +165,7 @@ inline visualization_msgs::msg::MarkerArray toMsg(
   edge_arrow_marker.scale.x = 0.15;  // Comprimento da seta
   edge_arrow_marker.scale.y = 0.03;  // Largura da seta
   edge_arrow_marker.scale.z = 0.03;  // Altura da seta
-  edge_arrow_marker.color.a = 0.8;
+  edge_arrow_marker.color.a = 0.8;  // Sobrescrito por aresta: transparencia vem do "penalty"
   edge_arrow_marker.color.r = 1.0;  // Cor diferente da aresta (laranja)
   edge_arrow_marker.color.g = 0.5;
   edge_arrow_marker.color.b = 0.0;
@@ -199,6 +199,48 @@ inline visualization_msgs::msg::MarkerArray toMsg(
   edge_speed_marker.color.b = 0.0;  // todas relativamente claras
   edge_speed_marker.color.a = 1.0;
   edge_speed_marker.pose.position.z = 0.25;
+
+  // ---- Transparencia das setas pelo "penalty" da aresta (PenaltyScorer) ----
+  // Quanto MENOR o penalty, mais transparente a seta; quanto MAIOR, mais opaca.
+  // So as setas mudam: elas nunca se sobrepoem (as duas setas de um par
+  // bidirecional saem do mesmo ponto medio em sentidos opostos) e cada seta e um
+  // marker proprio, com material proprio no RViz -- entao o alpha de uma nao
+  // interfere no das outras (ao contrario da LINE_LIST das arestas, onde o
+  // material e compartilhado e o ultimo ponto decide a transparencia de todas).
+  constexpr float arrow_alpha_min = 0.5f;  // penalty 0: piso alto p/ o sentido continuar legivel
+  constexpr float arrow_alpha_max = 1.0f;  // maior penalty do grafo: totalmente opaca
+
+  // Le o penalty de uma aresta. Ausente -> 0.0 (mesmo default do PenaltyScorer).
+  // So aceita float: um "penalty": 50 escrito sem decimal e lido como int, e o
+  // PenaltyScorer lanca bad_any_cast nessa aresta (a rota falha) -- aqui so
+  // avisamos uma vez e tratamos como 0.0, para a visualizacao nao quebrar.
+  auto edge_penalty = [](const nav2_route::DirectionalEdge & edge) -> float {
+      auto it = edge.metadata.data.find("penalty");
+      if (it == edge.metadata.data.end()) {
+        return 0.0f;
+      }
+      if (it->second.type() != typeid(float)) {
+        RCLCPP_WARN_ONCE(
+          rclcpp::get_logger("nav2_route_utils"),
+          "Edge metadata key 'penalty' is not stored as a float (found type: %s); "
+          "treating it as 0.0 for the arrow transparency. Graph files should write "
+          "penalty as a decimal (e.g. 50.0, not 50) -- the PenaltyScorer also fails "
+          "on such edges.",
+          it->second.type().name());
+        return 0.0f;
+      }
+      return std::any_cast<float>(it->second);
+    };
+
+  // 1a passada: maior penalty do grafo, para normalizar a transparencia (0..1)
+  // relativa ao proprio grafo -- assim nao e preciso mudar a assinatura de toMsg()
+  // (usada pelo route_server e pelo painel Route Tool).
+  float max_penalty = 0.0f;
+  for (const auto & node : graph) {
+    for (const auto & edge : node.neighbors) {
+      max_penalty = std::max(max_penalty, edge_penalty(edge));
+    }
+  }
 
   for (const auto & node : graph) {
     node_pos.x = node.coords.x;
@@ -386,9 +428,17 @@ inline visualization_msgs::msg::MarkerArray toMsg(
       edge_arrow_marker.pose.orientation.z = std::sin(yaw / 2.0);
       edge_arrow_marker.pose.orientation.w = std::cos(yaw / 2.0);
 
-      // Ajustar cor da seta para corresponder ao tipo de aresta
+      // Ajustar cor da seta para corresponder ao tipo de aresta (o matiz continua
+      // indicando ida/volta/mao unica)
       edge_arrow_marker.color = edge_color;
-      edge_arrow_marker.color.a = 0.8;  // a seta mantem sua propria transparencia
+
+      // Transparencia pelo penalty DESTA aresta (deste sentido), normalizado pelo
+      // maior penalty do grafo: t = 0 (sem penalty) ... 1 (maior penalty).
+      // Grafo sem nenhum penalty -> todas as setas ficam no piso (arrow_alpha_min).
+      const float penalty_t = (max_penalty > 0.0f) ?
+        std::clamp(edge_penalty(neighbor) / max_penalty, 0.0f, 1.0f) : 0.0f;
+      edge_arrow_marker.color.a =
+        arrow_alpha_min + (arrow_alpha_max - arrow_alpha_min) * penalty_t;
 
       msg.markers.push_back(edge_arrow_marker);
     }
