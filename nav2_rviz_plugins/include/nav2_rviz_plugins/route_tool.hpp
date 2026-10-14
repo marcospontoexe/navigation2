@@ -104,6 +104,7 @@ private:
   std::shared_ptr<nav2_route::GraphLoader> graph_loader_;
   std::shared_ptr<nav2_route::GraphSaver> graph_saver_;
   nav2::TransformBuffer::SharedPtr tf_;
+  nav2::TransformListener::SharedPtr transform_listener_;
   nav2_route::Graph graph_;
   nav2_route::GraphToIDMap graph_to_id_map_;
   nav2_route::GraphToIDMap edge_to_node_map_;

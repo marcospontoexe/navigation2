@@ -34,6 +34,8 @@ RouteTool::RouteTool(QWidget * parent)
     "route_graph", rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable());
   node_->activate();
   tf_ = nav2::create_transform_buffer(node_);
+  // Without a listener the buffer never receives any transform
+  transform_listener_ = nav2::create_transform_listener(*tf_);
   graph_loader_ = std::make_shared<nav2_route::GraphLoader>(node_, tf_, "map");
   graph_saver_ = std::make_shared<nav2_route::GraphSaver>(node_, tf_, "map");
   ui_->add_node_button->setChecked(true);
