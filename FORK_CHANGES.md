@@ -4,6 +4,18 @@ This is a fork of [ros-navigation/navigation2](https://github.com/ros-navigation
 
 ![Route Tool panel showing directional arrows, color-coded bidirectional edges, ID labels, and the new Bidirectional Edge / Speed fields](nav2_rviz_plugins/doc/route_tool_screenshot.png)
 
+## Why this fork exists
+
+The Route Tool that ships with Nav2 made building real route graphs slow and the result hard to read:
+
+- **One edge at a time.** Letting the robot travel both ways between two nodes meant creating `A → B` and then `B → A` as two separate edges.
+- **Overlapping IDs.** Edge ID labels were drawn right on the edge lines, and the two labels of a bidirectional pair sat only 10 cm apart with 10 cm tall text, almost on top of each other. In a dense graph the IDs became hard to read.
+- **None of the other features below**: edges had no visible direction, there was no way to see or set an edge's speed limit from the panel, no way to place a node at the robot's current position, and no visual cue for penalized edges.
+
+![The original Route Tool: plain green edges without direction, small edge ID labels overlapping the lines, and only Start/End node fields to create one edge at a time](nav2_rviz_plugins/doc/routetool_original.png)
+
+*The original Route Tool, before these changes: plain edges with no direction, small ID labels on top of the lines, and only "Start Node ID" / "End Node ID" to create one edge at a time.*
+
 ## New features
 
 ### 1. One-click bidirectional edge creation
@@ -89,7 +101,7 @@ Tested on **ROS 2 Jazzy** (Ubuntu 24.04).
 2. Install dependencies with `rosdep` from the workspace root:
    ```bash
    cd ~/nav2_ws
-   rosdep install --from-paths src --ignore-src -r -y
+   rosdep install --from-paths src --ignore-src -y
    ```
 3. Build (at least the two affected packages, or the whole workspace):
    ```bash
@@ -106,4 +118,4 @@ Tested on **ROS 2 Jazzy** (Ubuntu 24.04).
 ## Credit
 
 - Route Tool originally authored by John Chrosniak (2024) as part of `nav2_route`.
-- Bidirectional edges, directional arrows, speed limit input, and label readability improvements above co-authored by [@marcospontoexe](https://github.com/marcospontoexe) and [Erico Meger](https://github.com/EricoMeger).
+- Features 1–3 (bidirectional edges, directional arrows, readable ID labels) co-authored by [@marcospontoexe](https://github.com/marcospontoexe) and [Erico Meger](https://github.com/EricoMeger); features 4–7 by [@marcospontoexe](https://github.com/marcospontoexe).
